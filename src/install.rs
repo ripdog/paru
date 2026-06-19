@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::Ordering;
 
+use crate::ai_review;
 use crate::args::{Arg, Args};
 use crate::chroot::Chroot;
 use crate::clean::clean_untracked;
@@ -934,7 +935,7 @@ impl Installer {
         config.init_alpm()?;
 
         if self.refresh != 0 {
-            config.pkgbuild_repos.refresh(config)?;
+            config.pkgbuild_repos.refresh(config).await?;
             self.done_something = true;
         }
         self.resolve_targets(config, &repo_targets, &aur_targets)
@@ -1178,7 +1179,7 @@ impl Installer {
                     Base::Pkgbuild(_) => None,
                 })
                 .collect::<Vec<_>>();
-            let reviewed = review(config, &config.fetch, &pkgs, false)?;
+            let reviewed = review(config, &config.fetch, &pkgs, false).await?;
             mark_reviewed(&config.fetch, &reviewed)?;
         }
 
@@ -2301,7 +2302,7 @@ pub(crate) fn seen_repos<'a>(fetch: &aur_fetch::Fetch, pkgs: &[&'a str]) -> Vec<
         .collect()
 }
 
-pub(crate) fn review(
+pub(crate) async fn review(
     config: &Config,
     fetch: &aur_fetch::Fetch,
     pkgs: &[&str],
@@ -2317,6 +2318,10 @@ pub(crate) fn review(
         if let Some(ref fm) = config.fm {
             let _view = file_manager(config, fetch, fm, &reviewed)?;
             file_manager_changes(fetch, &mut reviewed)?;
+
+            if config.ai_review && config.ai_review_url.is_some() {
+                run_ai_reviews(config, fetch, pkgs).await;
+            }
 
             if !ask(config, &tr!("Accept changes?"), true) {
                 return Err(Status(1).into());
@@ -2370,6 +2375,32 @@ pub(crate) fn review(
                     let _ = stdin.write_all(b"\n\n");
                 }
 
+                if config.ai_review && config.ai_review_url.is_some() {
+                    for (repo, diff) in has_diff.iter().zip(&diffs) {
+                        let pkg = repo.name.as_str();
+                        let pkgbuild_path = fetch.clone_dir.join(pkg).join("PKGBUILD");
+                        let input = ai_review::ReviewInput {
+                            pkg,
+                            diff,
+                            pkgbuild_path: pkgbuild_path.exists().then(|| pkgbuild_path.as_path()),
+                        };
+                        match ai_review::review(config, &input).await {
+                            Ok(output) => {
+                                write_ai_review(&mut stdin, config, pkg, &output)?;
+                            }
+                            Err(e) => {
+                                let _ = writeln!(
+                                    stdin,
+                                    "{} {}: {}",
+                                    c.action.paint("::"),
+                                    c.bold.paint(tr!("AI review unavailable for {}", pkg)),
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
+
                 for (repo, diff) in has_diff.iter().zip(diffs) {
                     let _ = write!(
                         stdin,
@@ -2411,6 +2442,65 @@ pub(crate) fn review(
     }
 
     Ok(reviewed)
+}
+
+async fn run_ai_reviews(config: &Config, fetch: &aur_fetch::Fetch, pkgs: &[&str]) {
+    for pkg in pkgs {
+        let pkgbuild_path = fetch.clone_dir.join(pkg).join("PKGBUILD");
+        // For file-manager mode we don't have a pre-computed diff string handy,
+        // so pass an empty diff and let the model review the full PKGBUILD.
+        let input = ai_review::ReviewInput {
+            pkg,
+            diff: "",
+            pkgbuild_path: pkgbuild_path.exists().then(|| pkgbuild_path.as_path()),
+        };
+        match ai_review::review(config, &input).await {
+            Ok(output) => ai_review::print_review(config, pkg, &output),
+            Err(e) => {
+                eprintln!("{} {}", tr!("AI review unavailable:"), e);
+            }
+        }
+    }
+}
+
+fn write_ai_review(
+    stdin: &mut impl Write,
+    config: &Config,
+    pkg: &str,
+    review: &ai_review::ReviewOutput,
+) -> Result<()> {
+    let c = &config.color;
+    let risk_color = match review.risk {
+        ai_review::RiskLevel::Low => c.upgrade,
+        ai_review::RiskLevel::Medium => c.warning,
+        ai_review::RiskLevel::High => c.error,
+    };
+
+    writeln!(
+        stdin,
+        "{} {} {}: {}",
+        c.action.paint("::"),
+        c.bold.paint(tr!("AI review")),
+        c.bold.paint(pkg),
+        risk_color.paint(format!(
+            "{} {} - {}",
+            review.risk.icon(),
+            review.risk.as_str(),
+            review.summary
+        ))
+    )?;
+
+    for concern in &review.concerns {
+        writeln!(
+            stdin,
+            "    {} {}",
+            config.color.warning.paint("-"),
+            concern
+        )?;
+    }
+
+    writeln!(stdin)?;
+    Ok(())
 }
 
 fn update_aur_list(config: &Config) {

@@ -457,6 +457,12 @@ pub struct Config {
     pub version: bool,
 
     pub skip_review: bool,
+    pub ai_review: bool,
+    pub ai_review_url: Option<String>,
+    pub ai_review_model: Option<String>,
+    pub ai_review_key: Option<String>,
+    pub ai_review_timeout: u64,
+    pub ai_review_max_tokens: usize,
     pub no_check: bool,
     pub no_confirm: bool,
     pub devel: bool,
@@ -1074,6 +1080,8 @@ then initialise it with:
 
         match key {
             "SkipReview" => self.skip_review = true,
+            "AiReview" => self.ai_review = true,
+            "NoAiReview" => self.ai_review = false,
             "BottomUp" => self.sort_mode = SortMode::BottomUp,
             "TopDown" => self.sort_mode = SortMode::TopDown,
             "Auto" => self.sort_mode = SortMode::Auto,
@@ -1152,6 +1160,11 @@ then initialise it with:
             "SearchBy" => self.search_by = ConfigEnum::from_str(key, value?.as_str())?,
             "Limit" => self.limit = value?.parse()?,
             "CompletionInterval" => self.completion_interval = value?.parse()?,
+            "AiReviewUrl" => self.ai_review_url = Some(value?),
+            "AiReviewModel" => self.ai_review_model = Some(value?),
+            "AiReviewKey" => self.ai_review_key = Some(value?),
+            "AiReviewTimeout" => self.ai_review_timeout = value?.parse()?,
+            "AiReviewMaxTokens" => self.ai_review_max_tokens = value?.parse()?,
             "PacmanConf" => self.pacman_conf = Some(value?),
             "MakepkgConf" => self.makepkg_conf = Some(value?),
             "DevelSuffixes" => {

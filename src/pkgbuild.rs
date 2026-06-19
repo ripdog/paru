@@ -424,7 +424,7 @@ impl PkgbuildRepos {
             .collect()
     }
 
-    pub fn refresh(&self, config: &Config) -> Result<()> {
+    pub async fn refresh(&self, config: &Config) -> Result<()> {
         let cols = config.cols.unwrap_or(0);
         let action = config.color.action;
         let bold = config.color.bold;
@@ -500,7 +500,7 @@ impl PkgbuildRepos {
             .collect::<Vec<_>>();
         self.fetch.merge(&never_accepted)?;
 
-        let reviewed = review(config, &self.fetch, &review_repos, true)?;
+        let reviewed = review(config, &self.fetch, &review_repos, true).await?;
 
         let all_repos = repos.iter().map(|r| r.name.as_str()).collect::<Vec<_>>();
         merge_reviewed(&self.fetch, &reviewed, &all_repos)?;
