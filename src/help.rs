@@ -63,6 +63,12 @@ pub fn help() {
     println!();
     printtr!("    --skipreview           Skip the review process");
     printtr!("    --review               Don't skip the review process");
+    printtr!("    --[no]aireview         Run PKGBUILD diffs past an LLM for review");
+    printtr!("    --aireviewurl   <url>  OpenAI-compatible chat completions endpoint");
+    printtr!("    --aireviewmodel <model> Model name to send to the AI review endpoint");
+    printtr!("    --aireviewkey   <key>  API key for the AI review endpoint");
+    printtr!("    --aireviewtimeout <n>  Timeout in seconds for AI review requests");
+    printtr!("    --aireviewmaxtokens <n> Max tokens for AI review responses");
     printtr!("    --[no]upgrademenu      Show interactive menu to skip upgrades");
     printtr!("    --[no]removemake       Remove makedepends after install");
     printtr!("    --[no]cleanafter       Remove package sources after install");

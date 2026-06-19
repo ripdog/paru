@@ -257,6 +257,21 @@ impl Config {
             Arg::Long("interactive") => self.interactive = true,
             Arg::Long("skipreview") => self.skip_review = true,
             Arg::Long("review") => self.skip_review = false,
+            Arg::Long("aireview") => self.ai_review = true,
+            Arg::Long("noaireview") => self.ai_review = false,
+            Arg::Long("aireviewurl") => self.ai_review_url = Some(value?.to_string()),
+            Arg::Long("aireviewmodel") => self.ai_review_model = Some(value?.to_string()),
+            Arg::Long("aireviewkey") => self.ai_review_key = Some(value?.to_string()),
+            Arg::Long("aireviewtimeout") => {
+                self.ai_review_timeout = value?
+                    .parse()
+                    .map_err(|_| anyhow!("option {} must be a number", arg))?
+            }
+            Arg::Long("aireviewmaxtokens") => {
+                self.ai_review_max_tokens = value?
+                    .parse()
+                    .map_err(|_| anyhow!("option {} must be a number", arg))?
+            }
             Arg::Long("gendb") => self.gendb = true,
             Arg::Long("nocheck") => self.no_check = true,
             Arg::Long("devel") => self.devel = true,
@@ -431,6 +446,11 @@ fn takes_value(arg: Arg) -> TakesValue {
         Arg::Long("provides") => TakesValue::Optional,
         Arg::Long("clonedir") => TakesValue::Required,
         Arg::Long("develfile") => TakesValue::Required,
+        Arg::Long("aireviewurl") => TakesValue::Required,
+        Arg::Long("aireviewmodel") => TakesValue::Required,
+        Arg::Long("aireviewkey") => TakesValue::Required,
+        Arg::Long("aireviewtimeout") => TakesValue::Required,
+        Arg::Long("aireviewmaxtokens") => TakesValue::Required,
         //pacman
         Arg::Long("dbpath") | Arg::Short('b') => TakesValue::Required,
         Arg::Long("root") | Arg::Short('r') => TakesValue::Required,

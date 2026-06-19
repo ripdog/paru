@@ -1,3 +1,4 @@
+mod ai_review;
 mod args;
 mod chroot;
 mod clean;
