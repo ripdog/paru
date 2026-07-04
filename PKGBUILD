@@ -5,7 +5,7 @@
 # the original repo root.
 
 pkgname=paru
-pkgver=2.1.0
+pkgver=2.1.0+r68.gd168c28
 pkgrel=1
 pkgdesc="Feature packed AUR helper"
 arch=('x86_64')

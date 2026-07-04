@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::config::Config;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use tr::tr;
@@ -110,6 +110,8 @@ pub async fn review(config: &Config, input: &ReviewInput<'_>) -> Result<ReviewOu
     let url = config
         .ai_review_url
         .as_deref()
+        .map(str::trim)
+        .map(|s| s.trim_matches(&['"', '\'', ' '] as &[_]))
         .context(tr!("AI review enabled but no URL configured"))?;
     let model = config
         .ai_review_model
@@ -165,10 +167,9 @@ pub async fn review(config: &Config, input: &ReviewInput<'_>) -> Result<ReviewOu
         builder = builder.header(AUTHORIZATION, format!("Bearer {key}"));
     }
 
-    let response = builder
-        .send()
-        .await
-        .context(tr!("failed to contact AI review endpoint"))?;
+    let response = builder.send().await.map_err(|e| {
+        anyhow!(tr!("failed to contact AI review endpoint — {e}", e = e))
+    })?;
 
     let status = response.status();
     if !status.is_success() {
@@ -247,6 +248,35 @@ fn parse_review_response(content: &str) -> Result<ReviewOutput> {
     })
 }
 
+/// Wraps `text` to `max_width` columns, breaking on word boundaries.
+/// Continuation lines are indented with `hang` spaces.
+pub fn wrap_text(text: &str, max_width: usize, hang: &str) -> String {
+    let mut out = String::with_capacity(text.len() + 32);
+    let mut line_len: usize = 0;
+    let mut first = true;
+
+    for word in text.split_whitespace() {
+        let wlen = word.chars().count();
+        let needed = if first { 0 } else { 1 } + wlen;
+        if !first && line_len + needed > max_width {
+            out.push('\n');
+            out.push_str(hang);
+            out.push_str(word);
+            line_len = hang.chars().count().saturating_add(wlen);
+        } else {
+            if !first {
+                out.push(' ');
+                line_len += 1;
+            }
+            out.push_str(word);
+            line_len = line_len.saturating_add(wlen);
+        }
+        first = false;
+    }
+
+    out
+}
+
 pub fn print_review(config: &Config, pkg: &str, review: &ReviewOutput) {
     let c = &config.color;
     let risk_color = match review.risk {
@@ -255,20 +285,37 @@ pub fn print_review(config: &Config, pkg: &str, review: &ReviewOutput) {
         RiskLevel::High => c.error,
     };
 
-    println!(
-        "{} {} {}: {}",
-        c.action.paint("::"),
-        c.bold.paint(tr!("AI review")),
-        c.bold.paint(pkg),
-        risk_color.paint(format!(
-            "{} {} - {}",
-            review.risk.icon(),
-            review.risk.as_str(),
-            review.summary
-        ))
+    let header_prefix = format!(
+        "{} {}: {} {} - ",
+        tr!("AI review"),
+        pkg,
+        review.risk.icon(),
+        review.risk.as_str()
     );
 
+    let wrapped = wrap_text(&review.summary, 80, "    ");
+    let summary_first_line = wrapped.lines().next().unwrap_or("");
+    let summary_rest: Vec<&str> = wrapped.lines().skip(1).collect();
+
+    println!(
+        "{} {} {}",
+        c.action.paint("::"),
+        c.bold.paint(&header_prefix),
+        risk_color.paint(summary_first_line)
+    );
+
+    for line in summary_rest {
+        println!("{}", risk_color.paint(line));
+    }
+
     for concern in &review.concerns {
-        println!("    {} {}", c.warning.paint("-"), concern);
+        let wrapped = wrap_text(concern, 74, "      "); // 80 - "    - "
+        let mut lines = wrapped.lines();
+        if let Some(first) = lines.next() {
+            println!("    {} {}", c.warning.paint("-"), first);
+        }
+        for line in lines {
+            println!("      {}", line);
+        }
     }
 }
