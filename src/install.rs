@@ -1862,27 +1862,44 @@ fn write_ai_review(
         ai_review::RiskLevel::High => c.error,
     };
 
+    let header_prefix = format!(
+        "{} {}: {} {} - ",
+        tr!("AI review"),
+        pkg,
+        review.risk.icon(),
+        review.risk.as_str()
+    );
+
+    let wrapped = ai_review::wrap_text(&review.summary, 80, "    ");
+    let summary_first_line = wrapped.lines().next().unwrap_or("");
+    let summary_rest: Vec<&str> = wrapped.lines().skip(1).collect();
+
     writeln!(
         stdin,
-        "{} {} {}: {}",
+        "{} {} {}",
         c.action.paint("::"),
-        c.bold.paint(tr!("AI review")),
-        c.bold.paint(pkg),
-        risk_color.paint(format!(
-            "{} {} - {}",
-            review.risk.icon(),
-            review.risk.as_str(),
-            review.summary
-        ))
+        c.bold.paint(&header_prefix),
+        risk_color.paint(summary_first_line)
     )?;
 
+    for line in summary_rest {
+        writeln!(stdin, "{}", risk_color.paint(line))?;
+    }
+
     for concern in &review.concerns {
-        writeln!(
-            stdin,
-            "    {} {}",
-            config.color.warning.paint("-"),
-            concern
-        )?;
+        let wrapped = ai_review::wrap_text(concern, 74, "      ");
+        let mut lines = wrapped.lines();
+        if let Some(first) = lines.next() {
+            writeln!(
+                stdin,
+                "    {} {}",
+                config.color.warning.paint("-"),
+                first
+            )?;
+        }
+        for line in lines {
+            writeln!(stdin, "      {}", line)?;
+        }
     }
 
     writeln!(stdin)?;
