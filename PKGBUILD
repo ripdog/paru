@@ -1,11 +1,11 @@
 # Maintainer: <insert your name> <email>
-# Build from local checkout. Copy this PKGBUILD to a separate directory
-# (e.g. /tmp/paru-build), adjust PARU_SOURCE below, and run makepkg.
-# The pkg/ and src/ directories created by makepkg will stay outside
-# the original repo root.
+# Build and package the checkout containing this PKGBUILD. Set BUILDDIR to a
+# directory outside the checkout when invoking makepkg; this project already
+# has its own src/ directory, which `makepkg -C` would otherwise remove.
+# Example: makepkg BUILDDIR=/tmp/paru-makepkg
 
 pkgname=paru
-pkgver=2.1.0+r68.gd168c28
+pkgver=2.1.0+r69.g428fb0d
 pkgrel=1
 pkgdesc="Feature packed AUR helper"
 arch=('x86_64')
@@ -18,32 +18,28 @@ optdepends=('bat: colored pkgbuild printing'
 provides=('paru')
 conflicts=('paru')
 
-# ── Point this at your local checkout ─────────────────────────
-# Change the path to match where you cloned paru.
-_PARU_SOURCE=/home/ripdog/git-clones/paru
-
-source=("$pkgname::git+file://${_PARU_SOURCE}")
-sha256sums=('SKIP')
+source=()
+sha256sums=()
 
 pkgver() {
-  cd "$srcdir/$pkgname"
+  cd "$startdir"
   git describe --long --tags --abbrev=7 2>/dev/null \
     | sed 's/^v//;s/\([^-]*\)-\([^-]*\)-\(.*\)/\1+r\2.\3/' \
     || echo "$pkgver"
 }
 
 build() {
-  cd "$srcdir/$pkgname"
+  cd "$startdir"
   cargo build --release --features "git,generate"
 }
 
 check() {
-  cd "$srcdir/$pkgname"
+  cd "$startdir"
   cargo test --features "git,generate" -- --skip integration_tests 2>/dev/null
 }
 
 package() {
-  cd "$srcdir/$pkgname"
+  cd "$startdir"
 
   # binary
   install -Dm0755 target/release/paru "$pkgdir/usr/bin/paru"

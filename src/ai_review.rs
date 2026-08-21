@@ -150,7 +150,9 @@ pub async fn review(config: &Config, input: &ReviewInput<'_>) -> Result<ReviewOu
             },
         ],
         max_tokens,
-        response_format: Some(ResponseFormat { r#type: "json_object" }),
+        response_format: Some(ResponseFormat {
+            r#type: "json_object",
+        }),
     };
 
     let client = reqwest::Client::builder()
@@ -167,9 +169,10 @@ pub async fn review(config: &Config, input: &ReviewInput<'_>) -> Result<ReviewOu
         builder = builder.header(AUTHORIZATION, format!("Bearer {key}"));
     }
 
-    let response = builder.send().await.map_err(|e| {
-        anyhow!(tr!("failed to contact AI review endpoint — {e}", e = e))
-    })?;
+    let response = builder
+        .send()
+        .await
+        .map_err(|e| anyhow!(tr!("failed to contact AI review endpoint — {e}", e = e)))?;
 
     let status = response.status();
     if !status.is_success() {
@@ -227,12 +230,20 @@ fn parse_review_response(content: &str) -> Result<ReviewOutput> {
         .trim()
         .strip_prefix("```json")
         .and_then(|s| s.strip_suffix("```"))
-        .or_else(|| content.strip_prefix("```").and_then(|s| s.strip_suffix("```")))
+        .or_else(|| {
+            content
+                .strip_prefix("```")
+                .and_then(|s| s.strip_suffix("```"))
+        })
         .unwrap_or(content)
         .trim();
 
-    let parsed: ParsedReview = serde_json::from_str(cleaned)
-        .with_context(|| tr!("AI review returned invalid JSON: {content}", content = content))?;
+    let parsed: ParsedReview = serde_json::from_str(cleaned).with_context(|| {
+        tr!(
+            "AI review returned invalid JSON: {content}",
+            content = content
+        )
+    })?;
 
     let risk = RiskLevel::from_str(&parsed.risk).unwrap_or(RiskLevel::Low);
     let summary = if parsed.summary.is_empty() {
