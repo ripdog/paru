@@ -2,10 +2,10 @@
 # Build and package the checkout containing this PKGBUILD. Set BUILDDIR to a
 # directory outside the checkout when invoking makepkg; this project already
 # has its own src/ directory, which `makepkg -C` would otherwise remove.
-# Example: makepkg BUILDDIR=/tmp/paru-makepkg
+# Use ./scripts/makepkg to create and clean up a safe temporary build directory.
 
 pkgname=paru
-pkgver=2.1.0+r69.g428fb0d
+pkgver=2.1.0+r70.ge553fc7
 pkgrel=1
 pkgdesc="Feature packed AUR helper"
 arch=('x86_64')
