@@ -2399,6 +2399,29 @@ pub(crate) async fn review(
                             }
                         }
                     }
+
+                    for &pkg in unseen.iter().filter(|pkg| !has_diff.contains(pkg)) {
+                        let pkgbuild_path = fetch.clone_dir.join(pkg).join("PKGBUILD");
+                        let input = ai_review::ReviewInput {
+                            pkg,
+                            diff: "",
+                            pkgbuild_path: pkgbuild_path.exists().then(|| pkgbuild_path.as_path()),
+                        };
+                        match ai_review::review(config, &input).await {
+                            Ok(output) => {
+                                write_ai_review(&mut stdin, config, pkg, &output)?;
+                            }
+                            Err(e) => {
+                                let _ = writeln!(
+                                    stdin,
+                                    "{} {}: {}",
+                                    c.action.paint("::"),
+                                    c.bold.paint(tr!("AI review unavailable for {}", pkg)),
+                                    e
+                                );
+                            }
+                        }
+                    }
                 }
 
                 for (repo, diff) in has_diff.iter().zip(diffs) {
@@ -2504,12 +2527,7 @@ fn write_ai_review(
         let wrapped = ai_review::wrap_text(concern, 74, "      ");
         let mut lines = wrapped.lines();
         if let Some(first) = lines.next() {
-            writeln!(
-                stdin,
-                "    {} {}",
-                config.color.warning.paint("-"),
-                first
-            )?;
+            writeln!(stdin, "    {} {}", config.color.warning.paint("-"), first)?;
         }
         for line in lines {
             writeln!(stdin, "      {}", line)?;
