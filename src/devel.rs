@@ -266,6 +266,7 @@ async fn ls_remote_internal(
         .args(flags)
         .env("GIT_TERMINAL_PROMPT", "0")
         .arg("ls-remote")
+        .arg("--")
         .arg(remote)
         .arg(branch.unwrap_or("HEAD"));
 
@@ -590,4 +591,19 @@ pub fn load_devel_info(config: &Config) -> Result<Option<DevelInfo>> {
     save_devel_info(config, &devel_info)?;
 
     Ok(Some(devel_info))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn ls_remote_does_not_parse_remote_as_option() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("missing-repo");
+
+        let result = ls_remote_internal("git", &[], "--get-url", path.to_str()).await;
+
+        assert!(result.is_err(), "remote was interpreted as an option");
+    }
 }
