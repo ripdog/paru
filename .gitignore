@@ -4,3 +4,6 @@ po/*.mo
 locale/
 testdata/pkg/*
 /dist
+/packaging/src/
+/packaging/pkg/
+/packaging/*.pkg.tar.*
