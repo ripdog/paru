@@ -1,11 +1,9 @@
 # Maintainer: <insert your name> <email>
-# Build and package the checkout containing this PKGBUILD. Set BUILDDIR to a
-# directory outside the checkout when invoking makepkg; this project already
-# has its own src/ directory, which `makepkg -C` would otherwise remove.
-# Use ./scripts/makepkg to create and clean up a safe temporary build directory.
+# Builds the checkout containing this directory in place (no source download).
+# Run `makepkg -f` from this directory; src/ and pkg/ stay inside packaging/.
 
 pkgname=paru
-pkgver=2.1.0+r70.ge553fc7
+pkgver=2.1.0+r71.g17bb2ef
 pkgrel=1
 pkgdesc="Feature packed AUR helper"
 arch=('x86_64')
@@ -22,24 +20,23 @@ source=()
 sha256sums=()
 
 pkgver() {
-  cd "$startdir"
-  git describe --long --tags --abbrev=7 2>/dev/null \
+  git -C "$startdir/.." describe --long --tags --abbrev=7 2>/dev/null \
     | sed 's/^v//;s/\([^-]*\)-\([^-]*\)-\(.*\)/\1+r\2.\3/' \
     || echo "$pkgver"
 }
 
 build() {
-  cd "$startdir"
+  cd "$startdir/.."
   cargo build --release --features "git,generate"
 }
 
 check() {
-  cd "$startdir"
+  cd "$startdir/.."
   cargo test --features "git,generate" -- --skip integration_tests 2>/dev/null
 }
 
 package() {
-  cd "$startdir"
+  cd "$startdir/.."
 
   # binary
   install -Dm0755 target/release/paru "$pkgdir/usr/bin/paru"
