@@ -1,0 +1,32 @@
+name: Arch package
+on:
+  push:
+    branches: [ai-security, master]
+    paths-ignore: ['**.md', 'po/**']
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install dependencies
+        run: pacman -Syu --noconfirm --needed git cargo pacman
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build package
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          useradd -m builder
+          chown -R builder: "$GITHUB_WORKSPACE"
+          cd packaging
+          su builder -c 'git config --global --add safe.directory "$GITHUB_WORKSPACE" && makepkg -f --noconfirm'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paru-arch-package
+          path: packaging/*.pkg.tar.zst
+          if-no-files-found: error
