@@ -20,9 +20,12 @@ source=()
 sha256sums=()
 
 pkgver() {
-  git -C "$startdir/.." describe --long --tags --abbrev=7 2>/dev/null \
-    | sed 's/^v//;s/\([^-]*\)-\([^-]*\)-\(.*\)/\1+r\2.\3/' \
-    || echo "$pkgver"
+  local desc
+  if desc=$(git -C "$startdir/.." describe --long --tags --abbrev=7 2>/dev/null) && [[ -n $desc ]]; then
+    sed 's/^v//;s/\([^-]*\)-\([^-]*\)-\(.*\)/\1+r\2.\3/' <<<"$desc"
+  else
+    echo "$pkgver"
+  fi
 }
 
 build() {
