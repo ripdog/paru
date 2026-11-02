@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::config::Config;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use tr::tr;
@@ -202,10 +202,17 @@ pub async fn review(config: &Config, input: &ReviewInput<'_>) -> Result<ReviewOu
 fn build_prompt(input: &ReviewInput<'_>) -> String {
     let mut prompt = format!("Package: {}\n\n", input.pkg);
 
-    prompt.push_str("Diff since last installed version:\n");
-    prompt.push_str("```diff\n");
-    prompt.push_str(input.diff);
-    prompt.push_str("\n```\n\n");
+    if input.diff.is_empty() {
+        prompt.push_str(
+            "This is a new install with no previously reviewed version, \
+            so there is no diff. Review the full PKGBUILD below.\n\n",
+        );
+    } else {
+        prompt.push_str("Diff since last reviewed version:\n");
+        prompt.push_str("```diff\n");
+        prompt.push_str(input.diff);
+        prompt.push_str("\n```\n\n");
+    }
 
     if let Some(path) = input.pkgbuild_path {
         match read_to_string(path) {

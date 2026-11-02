@@ -1870,34 +1870,21 @@ pub async fn review(config: &Config, fetch: &aur_fetch::Fetch, pkgs: &[&str]) ->
                 }
 
                 if config.ai_review && config.ai_review_url.is_some() {
-                    for (&pkg, diff) in has_diff.iter().zip(&diffs) {
+                    // Packages with a diff are updates; unseen packages without one are new installs.
+                    let updates = has_diff
+                        .iter()
+                        .zip(&diffs)
+                        .map(|(&pkg, diff)| (pkg, diff.as_str()));
+                    let installs = unseen
+                        .iter()
+                        .filter(|pkg| !has_diff.contains(pkg))
+                        .map(|&pkg| (pkg, ""));
+
+                    for (pkg, diff) in updates.chain(installs) {
                         let pkgbuild_path = fetch.clone_dir.join(pkg).join("PKGBUILD");
                         let input = ai_review::ReviewInput {
                             pkg,
                             diff,
-                            pkgbuild_path: pkgbuild_path.exists().then(|| pkgbuild_path.as_path()),
-                        };
-                        match ai_review::review(config, &input).await {
-                            Ok(output) => {
-                                write_ai_review(&mut stdin, config, pkg, &output)?;
-                            }
-                            Err(e) => {
-                                let _ = writeln!(
-                                    stdin,
-                                    "{} {}: {}",
-                                    c.action.paint("::"),
-                                    c.bold.paint(tr!("AI review unavailable for {}", pkg)),
-                                    e
-                                );
-                            }
-                        }
-                    }
-
-                    for &pkg in unseen.iter().filter(|pkg| !has_diff.contains(pkg)) {
-                        let pkgbuild_path = fetch.clone_dir.join(pkg).join("PKGBUILD");
-                        let input = ai_review::ReviewInput {
-                            pkg,
-                            diff: "",
                             pkgbuild_path: pkgbuild_path.exists().then(|| pkgbuild_path.as_path()),
                         };
                         match ai_review::review(config, &input).await {
