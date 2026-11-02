@@ -3,7 +3,7 @@
 # Run `makepkg -f` from this directory; src/ and pkg/ stay inside packaging/.
 
 pkgname=paru
-pkgver=2.1.0+r71.g17bb2ef
+pkgver=2.2.0+r71.g17bb2ef
 pkgrel=1
 pkgdesc="Feature packed AUR helper"
 arch=('x86_64')
