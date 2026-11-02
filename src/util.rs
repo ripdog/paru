@@ -1,13 +1,14 @@
 use crate::config::{Config, LocalRepos};
 use crate::repo;
 
-use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 use std::fs::File;
-use std::io::{stderr, stdin, stdout, BufRead, Write};
+use std::io::{BufRead, Write, stderr, stdin, stdout};
 use std::mem::take;
 use std::ops::Range;
 use std::os::fd::{AsFd, OwnedFd};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use alpm::{Package, PackageReason};
 use alpm_utils::depends::{satisfies_dep, satisfies_provide};
@@ -15,6 +16,14 @@ use alpm_utils::{AsTarg, DbListExt, Targ};
 use anyhow::Result;
 use nix::unistd::{dup2_stdin, dup2_stdout};
 use tr::tr;
+
+/// Current time as seconds since the unix epoch.
+pub fn now_secs() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
 
 #[derive(Debug)]
 pub struct NumberMenu<'a> {
@@ -114,6 +123,17 @@ pub fn split_repo_aur_info<'a, T: AsTarg>(
     Ok((local, aur))
 }
 
+pub(crate) fn read_line_or_exit(input: &mut String) {
+    let stdin = stdin();
+    match stdin.lock().read_line(input) {
+        Ok(0) | Err(_) => {
+            println!();
+            std::process::exit(1);
+        }
+        Ok(_) => {}
+    }
+}
+
 pub fn ask(config: &Config, question: &str, default: bool) -> bool {
     let action = config.color.action;
     let bold = config.color.bold;
@@ -133,9 +153,8 @@ pub fn ask(config: &Config, question: &str, default: bool) -> bool {
         println!();
         return default;
     }
-    let stdin = stdin();
     let mut input = String::new();
-    let _ = stdin.read_line(&mut input);
+    read_line_or_exit(&mut input);
     let input = input.to_lowercase();
     let input = input.trim();
 
@@ -158,9 +177,8 @@ pub fn input(config: &Config, question: &str) -> String {
         println!();
         return "".into();
     }
-    let stdin = stdin();
     let mut input = String::new();
-    let _ = stdin.read_line(&mut input);
+    read_line_or_exit(&mut input);
     input
 }
 
@@ -302,9 +320,7 @@ pub fn get_provider(max: usize, no_confirm: bool) -> usize {
         input.clear();
 
         if !no_confirm {
-            let stdin = stdin();
-            let mut stdin = stdin.lock();
-            let _ = stdin.read_line(&mut input);
+            read_line_or_exit(&mut input);
         }
 
         let num = input.trim();
